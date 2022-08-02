@@ -3,14 +3,14 @@ package task
 import (
 	"context"
 	"fmt"
-	xxl "github.com/xxl-job/xxl-job-executor-go"
 	"time"
+
+	"github.com/xxl-job/xxl-job-executor-go"
 )
 
-func Test2(cxt context.Context, param *xxl.RunReq) (msg string) {
+func Test2(cxt context.Context, param *xxl.RunReq) (msg string, err error) {
 	num := 1
 	for {
-
 		select {
 		case <-cxt.Done():
 			fmt.Println("task" + param.ExecutorHandler + "被手动终止")

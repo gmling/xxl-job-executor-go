@@ -7,7 +7,7 @@ import (
 )
 
 // TaskFunc 任务执行函数
-type TaskFunc func(cxt context.Context, param *RunReq) string
+type TaskFunc func(cxt context.Context, param *RunReq) (msg string, err error)
 
 // Task 任务
 type Task struct {
@@ -19,7 +19,7 @@ type Task struct {
 	Cancel    context.CancelFunc
 	StartTime int64
 	EndTime   int64
-	//日志
+	// 日志
 	log Logger
 }
 
@@ -28,13 +28,20 @@ func (t *Task) Run(callback func(code int64, msg string)) {
 	defer func(cancel func()) {
 		if err := recover(); err != nil {
 			t.log.Info(t.Info()+" panic: %v", err)
-			debug.PrintStack() //堆栈跟踪
+			debug.PrintStack() // 堆栈跟踪
 			callback(FailureCode, fmt.Sprintf("task panic:%v", err))
 			cancel()
 		}
 	}(t.Cancel)
-	msg := t.fn(t.Ext, t.Param)
-	callback(SuccessCode, msg)
+
+	msg, err := t.fn(t.Ext, t.Param)
+
+	code := SuccessCode
+	if err != nil {
+		code, msg = FailureCode, fmt.Sprintf("%v\nerr:\n%v", msg, err)
+	}
+
+	callback(int64(code), msg)
 	return
 }
 

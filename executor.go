@@ -54,12 +54,12 @@ func newExecutor(opts ...Option) *executor {
 type executor struct {
 	opts    Options
 	address string
-	regList *taskList //注册任务列表
-	runList *taskList //正在执行任务列表
+	regList *taskList // 注册任务列表
+	runList *taskList // 正在执行任务列表
 	mu      sync.RWMutex
 	log     Logger
 
-	logHandler LogHandler //日志查询handler
+	logHandler LogHandler // 日志查询handler
 }
 
 func (e *executor) Init(opts ...Option) {
@@ -99,7 +99,7 @@ func (e *executor) Run() (err error) {
 	}
 	// 监听端口并提供服务
 	e.log.Info("Starting server at " + e.address)
-	go server.ListenAndServe()
+	go func() { _ = server.ListenAndServe() }()
 	quit := make(chan os.Signal)
 	signal.Notify(quit, syscall.SIGKILL, syscall.SIGQUIT, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -119,7 +119,7 @@ func (e *executor) RegTask(pattern string, task TaskFunc) {
 	return
 }
 
-//运行一个任务
+// 运行一个任务
 func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -138,15 +138,15 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	//阻塞策略处理
+	// 阻塞策略处理
 	if e.runList.Exists(Int64ToStr(param.JobID)) {
-		if param.ExecutorBlockStrategy == coverEarly { //覆盖之前调度
+		if param.ExecutorBlockStrategy == coverEarly { // 覆盖之前调度
 			oldTask := e.runList.Get(Int64ToStr(param.JobID))
 			if oldTask != nil {
 				oldTask.Cancel()
 				e.runList.Del(Int64ToStr(oldTask.Id))
 			}
-		} else { //单机串行,丢弃后续调度 都进行阻塞
+		} else { // 单机串行,丢弃后续调度 都进行阻塞
 			_, _ = writer.Write(returnCall(param, FailureCode, "There are tasks running"))
 			e.log.Error("任务[" + Int64ToStr(param.JobID) + "]已经在运行了:" + param.ExecutorHandler)
 			return
@@ -173,7 +173,7 @@ func (e *executor) runTask(writer http.ResponseWriter, request *http.Request) {
 	_, _ = writer.Write(returnGeneral())
 }
 
-//删除一个任务
+// 删除一个任务
 func (e *executor) killTask(writer http.ResponseWriter, request *http.Request) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -191,7 +191,7 @@ func (e *executor) killTask(writer http.ResponseWriter, request *http.Request) {
 	_, _ = writer.Write(returnGeneral())
 }
 
-//任务日志
+// 任务日志
 func (e *executor) taskLog(writer http.ResponseWriter, request *http.Request) {
 	var res *LogRes
 	data, err := ioutil.ReadAll(request.Body)
@@ -218,7 +218,7 @@ func (e *executor) taskLog(writer http.ResponseWriter, request *http.Request) {
 }
 
 // 心跳检测
-func (e *executor) beat(writer http.ResponseWriter, request *http.Request) {
+func (e *executor) beat(writer http.ResponseWriter, _ *http.Request) {
 	e.log.Info("心跳检测")
 	_, _ = writer.Write(returnGeneral())
 }
@@ -244,10 +244,9 @@ func (e *executor) idleBeat(writer http.ResponseWriter, request *http.Request) {
 	_, _ = writer.Write(returnGeneral())
 }
 
-//注册执行器到调度中心
+// 注册执行器到调度中心
 func (e *executor) registry() {
-
-	t := time.NewTimer(time.Second * 0) //初始立即执行
+	t := time.NewTimer(time.Second * 0) // 初始立即执行
 	defer t.Stop()
 	req := &Registry{
 		RegistryGroup: "EXECUTOR",
@@ -260,14 +259,14 @@ func (e *executor) registry() {
 	}
 	for {
 		<-t.C
-		t.Reset(time.Second * time.Duration(20)) //20秒心跳防止过期
+		t.Reset(time.Second * time.Duration(20)) // 20秒心跳防止过期
 		func() {
 			result, err := e.post("/api/registry", string(param))
 			if err != nil {
 				e.log.Error("执行器注册失败1:" + err.Error())
 				return
 			}
-			defer result.Body.Close()
+			defer func() { _ = result.Body.Close() }()
 			body, err := ioutil.ReadAll(result.Body)
 			if err != nil {
 				e.log.Error("执行器注册失败2:" + err.Error())
@@ -285,9 +284,9 @@ func (e *executor) registry() {
 	}
 }
 
-//执行器注册摘除
+// 执行器注册摘除
 func (e *executor) registryRemove() {
-	t := time.NewTimer(time.Second * 0) //初始立即执行
+	t := time.NewTimer(time.Second * 0) // 初始立即执行
 	defer t.Stop()
 	req := &Registry{
 		RegistryGroup: "EXECUTOR",
@@ -309,7 +308,7 @@ func (e *executor) registryRemove() {
 	_ = res.Body.Close()
 }
 
-//回调任务列表
+// 回调任务列表
 func (e *executor) callback(task *Task, code int64, msg string) {
 	e.runList.Del(Int64ToStr(task.Id))
 	res, err := e.post("/api/callback", string(returnCall(task.Param, code, msg)))
@@ -325,7 +324,7 @@ func (e *executor) callback(task *Task, code int64, msg string) {
 	e.log.Info("任务回调成功:" + string(body))
 }
 
-//post
+// post
 func (e *executor) post(action, body string) (resp *http.Response, err error) {
 	request, err := http.NewRequest("POST", e.opts.ServerAddr+action, strings.NewReader(body))
 	if err != nil {
