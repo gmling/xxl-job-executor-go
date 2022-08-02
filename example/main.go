@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/xxl-job/xxl-job-executor-go"
-	"github.com/xxl-job/xxl-job-executor-go/example/task"
+	"github.com/gmling/xxl-job-executor-go"
+	"github.com/gmling/xxl-job-executor-go/example/task"
 )
 
 func main() {

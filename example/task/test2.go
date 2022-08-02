@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/xxl-job/xxl-job-executor-go"
+	"github.com/gmling/xxl-job-executor-go"
 )
 
 func Test2(cxt context.Context, param *xxl.RunReq) (msg string, err error) {
